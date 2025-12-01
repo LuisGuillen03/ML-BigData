@@ -1,0 +1,11 @@
+credentials.json
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.env.*
+.DS_Store
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
