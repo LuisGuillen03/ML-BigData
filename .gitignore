@@ -9,3 +9,10 @@ venv/
 .ipynb_checkpoints/
 .pytest_cache/
 .mypy_cache/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
