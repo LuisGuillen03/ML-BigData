@@ -18,6 +18,10 @@ help:
 	@echo "  make run-silver      - Submit silver transform PySpark job"
 	@echo "  make upload-gold     - Upload gold transform script to GCS"
 	@echo "  make run-gold        - Submit gold transform PySpark job"
+	@echo "  make upload-gold-batch - Upload gold batch transform script to GCS"
+	@echo "  make run-gold-batch  - Submit gold batch transform PySpark job"
+	@echo "  make cluster-start   - Start Dataproc cluster"
+	@echo "  make cluster-stop    - Stop Dataproc cluster"
 	@echo "  make cluster-ssh     - SSH into cluster master node"
 
 .PHONY: infra-init
@@ -71,6 +75,26 @@ run-gold:
 	  --cluster=$(CLUSTER) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID)
+
+.PHONY: upload-gold-batch
+upload-gold-batch:
+	gsutil cp dataproc/gold_transform_batch.py gs://$(BUCKET)/scripts/
+
+.PHONY: run-gold-batch
+run-gold-batch:
+	gcloud dataproc jobs submit pyspark \
+	  gs://$(BUCKET)/scripts/gold_transform_batch.py \
+	  --cluster=$(CLUSTER) \
+	  --region=$(REGION) \
+	  --project=$(PROJECT_ID)
+
+.PHONY: cluster-start
+cluster-start:
+	gcloud dataproc clusters start $(CLUSTER) --region=$(REGION) --project=$(PROJECT_ID)
+
+.PHONY: cluster-stop
+cluster-stop:
+	gcloud dataproc clusters stop $(CLUSTER) --region=$(REGION) --project=$(PROJECT_ID)
 
 .PHONY: cluster-ssh
 cluster-ssh:
