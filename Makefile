@@ -16,6 +16,8 @@ help:
 	@echo "  make run-bronze      - Execute bronze extraction job"
 	@echo "  make upload-silver   - Upload silver transform script to GCS"
 	@echo "  make run-silver      - Submit silver transform PySpark job"
+	@echo "  make upload-gold     - Upload gold transform script to GCS"
+	@echo "  make run-gold        - Submit gold transform PySpark job"
 	@echo "  make cluster-ssh     - SSH into cluster master node"
 
 .PHONY: infra-init
@@ -54,6 +56,18 @@ upload-silver:
 run-silver:
 	gcloud dataproc jobs submit pyspark \
 	  gs://$(BUCKET)/scripts/silver_transform.py \
+	  --cluster=$(CLUSTER) \
+	  --region=$(REGION) \
+	  --project=$(PROJECT_ID)
+
+.PHONY: upload-gold
+upload-gold:
+	gsutil cp dataproc/gold_transform.py gs://$(BUCKET)/scripts/
+
+.PHONY: run-gold
+run-gold:
+	gcloud dataproc jobs submit pyspark \
+	  gs://$(BUCKET)/scripts/gold_transform.py \
 	  --cluster=$(CLUSTER) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID)
