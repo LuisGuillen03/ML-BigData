@@ -8,6 +8,13 @@ resource "google_cloud_run_v2_job" "bronze_extract" {
       containers {
         image = var.image_url
         
+        resources {
+          limits = {
+            memory = "1Gi"
+            cpu    = "2"
+          }
+        }
+        
         env {
           name  = "PROJECT_ID"
           value = var.project_id
@@ -18,6 +25,8 @@ resource "google_cloud_run_v2_job" "bronze_extract" {
           value = var.bucket_name
         }
       }
+      
+      timeout = "1800s"  # 30 minutes
     }
   }
 }
