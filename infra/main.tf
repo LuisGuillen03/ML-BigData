@@ -45,5 +45,5 @@ module "dataproc_cluster1" {
   staging_bucket      = module.storage.bucket_name
   master_machine_type = "n1-standard-2"
   worker_machine_type = "n1-standard-2"
-  num_workers         = 2
+  num_workers         = 3
 }
