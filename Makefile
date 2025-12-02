@@ -7,22 +7,18 @@ REPO_ID = iowa-liquor-ml
 .PHONY: help
 help:
 	@echo "Available commands:"
-	@echo "  make infra-init      - Initialize Terraform"
-	@echo "  make infra-plan      - Plan infrastructure changes"
-	@echo "  make infra-apply     - Apply infrastructure changes"
-	@echo "  make infra-destroy   - Destroy infrastructure"
-	@echo "  make docker-build    - Build bronze extract Docker image"
-	@echo "  make docker-push     - Push Docker image to Artifact Registry"
-	@echo "  make run-bronze      - Execute bronze extraction job"
-	@echo "  make upload-silver   - Upload silver transform script to GCS"
-	@echo "  make run-silver      - Submit silver transform PySpark job"
-	@echo "  make upload-gold     - Upload gold transform script to GCS"
-	@echo "  make run-gold        - Submit gold transform PySpark job"
-	@echo "  make upload-gold-batch - Upload gold batch transform script to GCS"
-	@echo "  make run-gold-batch  - Submit gold batch transform PySpark job"
-	@echo "  make cluster-start   - Start Dataproc cluster"
-	@echo "  make cluster-stop    - Stop Dataproc cluster"
-	@echo "  make cluster-ssh     - SSH into cluster master node"
+	@echo "  make help                    - Show this help message"
+	@echo "  make infra-init              - Initialize Terraform"
+	@echo "  make infra-plan              - Plan infrastructure changes"
+	@echo "  make infra-apply             - Apply infrastructure changes"
+	@echo "  make infra-destroy           - Destroy infrastructure"
+	@echo "  make build-bronze-container  - Build and push bronze Docker image"
+	@echo "  make run-bronze-extraction   - Execute bronze extraction job (monthly partitions)"
+	@echo "  make upload-gold-script      - Upload gold transform script to GCS"
+	@echo "  make run-gold-transform      - Submit gold transform PySpark job"
+	@echo "  make cluster-start           - Start Dataproc cluster"
+	@echo "  make cluster-stop            - Stop Dataproc cluster"
+	@echo "  make cluster-ssh             - SSH into cluster master node"
 
 .PHONY: infra-init
 infra-init:
@@ -40,50 +36,22 @@ infra-apply:
 infra-destroy:
 	cd infra && terraform destroy
 
-.PHONY: docker-build
-docker-build:
-	cd cloud_run && docker build -t $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_ID)/bronze-extract:latest .
+.PHONY: build-bronze-container
+build-bronze-container:
+	cd cloud_run && gcloud builds submit --tag $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_ID)/bronze-extract:latest --project=$(PROJECT_ID) --quiet
 
-.PHONY: docker-push
-docker-push:
-	docker push $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_ID)/bronze-extract:latest
-
-.PHONY: run-bronze
-run-bronze:
+.PHONY: run-bronze-extraction
+run-bronze-extraction:
 	gcloud run jobs execute bronze-extract-job --region=$(REGION) --project=$(PROJECT_ID)
 
-.PHONY: upload-silver
-upload-silver:
-	gsutil cp dataproc/silver_transform.py gs://$(BUCKET)/scripts/
-
-.PHONY: run-silver
-run-silver:
-	gcloud dataproc jobs submit pyspark \
-	  gs://$(BUCKET)/scripts/silver_transform.py \
-	  --cluster=$(CLUSTER) \
-	  --region=$(REGION) \
-	  --project=$(PROJECT_ID)
-
-.PHONY: upload-gold
-upload-gold:
+.PHONY: upload-gold-script
+upload-gold-script:
 	gsutil cp dataproc/gold_transform.py gs://$(BUCKET)/scripts/
 
-.PHONY: run-gold
-run-gold:
+.PHONY: run-gold-transform
+run-gold-transform:
 	gcloud dataproc jobs submit pyspark \
 	  gs://$(BUCKET)/scripts/gold_transform.py \
-	  --cluster=$(CLUSTER) \
-	  --region=$(REGION) \
-	  --project=$(PROJECT_ID)
-
-.PHONY: upload-gold-batch
-upload-gold-batch:
-	gsutil cp dataproc/gold_transform_batch.py gs://$(BUCKET)/scripts/
-
-.PHONY: run-gold-batch
-run-gold-batch:
-	gcloud dataproc jobs submit pyspark \
-	  gs://$(BUCKET)/scripts/gold_transform_batch.py \
 	  --cluster=$(CLUSTER) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID)
