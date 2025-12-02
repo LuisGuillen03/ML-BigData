@@ -1,4 +1,6 @@
-"""Bronze layer extraction - Cloud Run Job"""
+"""Bronze layer extraction - Cloud Run Job
+Exports data partitioned by year/month folders
+"""
 
 import os
 from google.cloud import bigquery
@@ -10,36 +12,52 @@ BUCKET_NAME = os.environ.get("BUCKET_NAME", "iowa-liquor-medallion-ml")
 def extract_and_upload():
     bq_client = bigquery.Client(project=PROJECT_ID)
 
-    temp_table = f"{PROJECT_ID}.ml_work.iowa_sales_temp"
-
-    print("Creating temp table...")
-    query = f"""
-    CREATE OR REPLACE TABLE `{temp_table}`
-    AS
-    SELECT *
+    query = """
+    SELECT DISTINCT 
+        EXTRACT(YEAR FROM date) as year,
+        EXTRACT(MONTH FROM date) as month
     FROM `bigquery-public-data.iowa_liquor_sales.sales`
+    ORDER BY year, month
     """
 
-    job = bq_client.query(query)
-    job.result()
-    print(f"✓ Temp table created: {temp_table}")
+    months = list(bq_client.query(query).result())
+    print(f"Found {len(months)} months to export")
 
-    destination_uri = f"gs://{BUCKET_NAME}/bronze/iowa_sales/*.parquet"
+    for row in months:
+        year, month = int(row.year), int(row.month)
+        destination_uri = f"gs://{BUCKET_NAME}/bronze/iowa_sales/year={year}/month={month:02d}/*.parquet"
 
-    print(f"Exporting to {destination_uri}...")
+        month_query = f"""
+        SELECT *
+        FROM `bigquery-public-data.iowa_liquor_sales.sales`
+        WHERE EXTRACT(YEAR FROM date) = {year}
+          AND EXTRACT(MONTH FROM date) = {month}
+        """
 
-    job_config = bigquery.ExtractJobConfig()
-    job_config.destination_format = bigquery.DestinationFormat.PARQUET
+        job_config = bigquery.QueryJobConfig(
+            destination=f"{PROJECT_ID}.ml_work.temp_export_{year}_{month:02d}",
+            write_disposition="WRITE_TRUNCATE",
+        )
 
-    extract_job = bq_client.extract_table(
-        temp_table, destination_uri, location="US", job_config=job_config
-    )
+        query_job = bq_client.query(month_query, job_config=job_config)
+        query_job.result()
 
-    extract_job.result()
-    print(f"✓ Export complete to gs://{BUCKET_NAME}/bronze/iowa_sales/")
+        extract_config = bigquery.ExtractJobConfig(
+            destination_format=bigquery.DestinationFormat.PARQUET
+        )
 
-    bq_client.delete_table(temp_table)
-    print("✓ Temp table deleted")
+        extract_job = bq_client.extract_table(
+            f"{PROJECT_ID}.ml_work.temp_export_{year}_{month:02d}",
+            destination_uri,
+            location="US",
+            job_config=extract_config,
+        )
+        extract_job.result()
+
+        bq_client.delete_table(f"{PROJECT_ID}.ml_work.temp_export_{year}_{month:02d}")
+        print(f"✓ Exported {year}-{month:02d}")
+
+    print(f"✓ All {len(months)} months exported")
 
 
 if __name__ == "__main__":
