@@ -588,7 +588,38 @@ Durante la ejecución de los jobs, se monitorearon métricas de recursos y tiemp
 [Análisis de los resultados obtenidos]
 
 \subsection{Justificación del muestreo}
-[Explicación de las decisiones de muestreo si aplica]
+
+En este proyecto se tomó la decisión de \textbf{no aplicar muestreo} y trabajar con el \textbf{dataset completo} de 32,816,143 registros. Esta decisión se fundamenta en principios de MLOps y mejores prácticas de ciencia de datos a gran escala:
+
+\paragraph{Razones técnicas y de negocio:}
+
+\begin{enumerate}
+  \item \textbf{Capacidad de infraestructura distribuida:} El uso de Dataproc con PySpark permite procesar eficientemente el volumen completo de datos mediante paralelización. El muestreo habría subutilizado la capacidad del cluster y no habría justificado el costo de la infraestructura distribuida.
+  
+  \item \textbf{Representatividad y generalización:} Al utilizar el dataset completo, se garantiza que el modelo capture todos los patrones, estacionalidades y variaciones presentes en 13.8 años de datos históricos. Un muestreo podría introducir sesgos al excluir eventos raros pero importantes (e.g., ventas atípicas, productos de baja frecuencia, tiendas pequeñas).
+  
+  \item \textbf{Cobertura de alta cardinalidad:} Con 15,183 productos únicos, 3,337 tiendas y 504 ciudades, un muestreo podría excluir combinaciones importantes de características que son críticas para la predicción en segmentos específicos del negocio.
+  
+  \item \textbf{Validación de escalabilidad:} Uno de los objetivos del proyecto es demostrar la capacidad de procesamiento distribuido en entornos de datos masivos. Trabajar con el dataset completo valida que el pipeline puede manejar volúmenes reales de producción sin degradación de performance.
+  
+  \item \textbf{Reproducibilidad y trazabilidad:} Al no aplicar muestreo aleatorio, se elimina una fuente de variabilidad en los resultados. Cada ejecución del pipeline procesa exactamente los mismos datos, facilitando la reproducibilidad y el debugging.
+  
+  \item \textbf{Optimización de costos:} Aunque procesar el dataset completo consume más recursos computacionales, el tiempo total de ejecución (17.93 minutos en Cluster 2) es aceptable y el costo incremental es marginal comparado con el valor de tener un modelo entrenado sobre datos completos.
+\end{enumerate}
+
+\paragraph{Estrategia de validación sin muestreo:}
+
+En lugar de muestreo para reducir volumen, se implementaron las siguientes estrategias:
+
+\begin{itemize}
+  \item \textbf{Particionamiento temporal:} Los datos se particionan por año y mes, permitiendo procesamiento incremental y consultas eficientes sobre ventanas temporales específicas.
+  
+  \item \textbf{Limpieza selectiva:} Se eliminaron únicamente registros con valores nulos o inconsistentes (0.04\% del total), preservando el 99.96\% de los datos válidos.
+  
+  \item \textbf{Feature engineering distribuido:} Las transformaciones se ejecutan en paralelo sobre el dataset completo, aprovechando la arquitectura distribuida de Spark.
+  
+  \item \textbf{Evaluación comparativa de clusters:} Se validó que ambas configuraciones de cluster pueden procesar el volumen completo, con el Cluster 2 (high-memory) completando en 17.93 minutos vs 28.44 minutos del Cluster 1.
+\end{itemize}
 
 \subsection{Evaluación del desempeño del modelo}
 [Análisis crítico del desempeño]
