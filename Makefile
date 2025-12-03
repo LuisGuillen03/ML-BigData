@@ -27,12 +27,14 @@ help:
 	@echo "  make run-gold-c1             - Run gold transform on cluster1"
 	@echo "  make cluster1-start          - Start cluster1"
 	@echo "  make cluster1-stop           - Stop cluster1"
+	@echo "  make cluster1-delete         - Delete cluster1"
 	@echo "  make cluster1-ssh            - SSH into cluster1"
 	@echo ""
 	@echo "Gold Layer - Cluster 2:"
 	@echo "  make run-gold-c2             - Run gold transform on cluster2"
 	@echo "  make cluster2-start          - Start cluster2"
 	@echo "  make cluster2-stop           - Stop cluster2"
+	@echo "  make cluster2-delete         - Delete cluster2"
 	@echo "  make cluster2-ssh            - SSH into cluster2"
 
 .PHONY: infra-init
@@ -103,6 +105,10 @@ cluster1-start:
 cluster1-stop:
 	gcloud dataproc clusters stop $(CLUSTER1) --region=$(REGION) --project=$(PROJECT_ID)
 
+.PHONY: cluster1-delete
+cluster1-delete:
+	gcloud dataproc clusters delete $(CLUSTER1) --region=$(REGION) --project=$(PROJECT_ID) --quiet
+
 .PHONY: cluster1-ssh
 cluster1-ssh:
 	gcloud compute ssh $(CLUSTER1)-m --zone=$(REGION)-a --project=$(PROJECT_ID)
@@ -114,6 +120,10 @@ cluster2-start:
 .PHONY: cluster2-stop
 cluster2-stop:
 	gcloud dataproc clusters stop $(CLUSTER2) --region=$(REGION) --project=$(PROJECT_ID)
+
+.PHONY: cluster2-delete
+cluster2-delete:
+	gcloud dataproc clusters delete $(CLUSTER2) --region=$(REGION) --project=$(PROJECT_ID) --quiet
 
 .PHONY: cluster2-ssh
 cluster2-ssh:
