@@ -20,16 +20,16 @@
     },
     "gold_phase": {
       "stages": {
-        "spark_initialization": "13.84s",
-        "read_bronze_data": "48.20s",
-        "data_cleaning": "178.64s",
-        "feature_engineering": "141.68s",
-        "write_to_gold_partitioned": "1295.20s"
+        "spark_initialization": "18.73s",
+        "read_bronze_data": "47.60s",
+        "data_cleaning": "183.98s",
+        "feature_engineering": "150.98s",
+        "write_to_gold_partitioned": "1305.39s"
       },
       "metadata": {
-        "job_completed": "2025-12-03 03:22:33",
-        "total_time": "1677.57s",
-        "total_minutes": "27.96",
+        "job_completed": "2025-12-03 06:27:21",
+        "total_time": "1706.68s",
+        "total_minutes": "28.44",
         "records_read": 32816143,
         "records_cleaned": 32801412,
         "records_removed": 14731,
@@ -37,8 +37,8 @@
       }
     },
     "pipeline_summary": {
-      "total_pipeline_time": "1686.08s",
-      "total_pipeline_minutes": "28.10"
+      "total_pipeline_time": "1715.19s",
+      "total_pipeline_minutes": "28.59"
     }
   },
   "cluster2_n2_hm_4w": {
@@ -72,15 +72,15 @@
     }
   },
   "performance_comparison": {
-    "speedup_factor": "1.56x",
-    "time_saved": "601.82s (10.03 minutes)",
-    "cluster2_faster_by": "35.7%",
+    "speedup_factor": "1.58x",
+    "time_saved": "630.93s (10.52 minutes)",
+    "cluster2_faster_by": "36.8%",
     "stage_improvements": {
-      "spark_initialization": "30.1% faster",
-      "read_bronze_data": "32.1% faster",
-      "data_cleaning": "47.2% faster",
-      "feature_engineering": "51.2% faster",
-      "write_to_gold_partitioned": "32.8% faster"
+      "spark_initialization": "48.3% faster",
+      "read_bronze_data": "31.2% faster",
+      "data_cleaning": "48.7% faster",
+      "feature_engineering": "54.2% faster",
+      "write_to_gold_partitioned": "33.4% faster"
     }
   },
   "cost_analysis": {
@@ -100,15 +100,15 @@
       "total": "$0.9240/hr"
     },
     "job_cost": {
-      "cluster1": "$0.215 (28.10 min × $0.4600/hr)",
+      "cluster1": "$0.219 (28.59 min × $0.4600/hr)",
       "cluster2": "$0.278 (18.07 min × $0.9240/hr)",
-      "difference": "$0.063 more for cluster2"
+      "difference": "$0.059 more for cluster2"
     },
     "cost_efficiency": {
       "cluster2_hourly_premium": "2.01x more expensive per hour",
-      "cluster2_job_premium": "29% more expensive per job",
-      "time_performance_gain": "35.7% faster",
-      "conclusion": "Cluster 2 costs 29% more but delivers 36% time savings - favorable trade-off for time-sensitive workloads"
+      "cluster2_job_premium": "27% more expensive per job",
+      "time_performance_gain": "36.8% faster",
+      "conclusion": "Cluster 2 costs 27% more but delivers 37% time savings - favorable trade-off for time-sensitive workloads"
     }
   }
 }
