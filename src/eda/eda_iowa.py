@@ -76,7 +76,7 @@ print(top_cat)
 # 5) Sample de filas para inspección
 sample = client.query(
     f"SELECT date, store_number, city, category, item_number, sale_dollars, bottles_sold "
-    f"FROM {table} TABLESAMPLE SYSTEM (0.001) LIMIT 5"
+    f"FROM {table} TABLESAMPLE SYSTEM (0.001 PERCENT) LIMIT 5"
 ).to_dataframe()
 print("\nMuestra de filas:")
 print(sample)
