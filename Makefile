@@ -51,11 +51,11 @@ infra-plan-c2:
 
 .PHONY: infra-apply-c1
 infra-apply-c1:
-	cd infra && terraform apply -var-file=cluster1.tfvars
+	cd infra && terraform apply -var-file=cluster1.tfvars -auto-approve
 
 .PHONY: infra-apply-c2
 infra-apply-c2:
-	cd infra && terraform apply -var-file=cluster2.tfvars
+	cd infra && terraform apply -var-file=cluster2.tfvars -auto-approve
 
 .PHONY: infra-destroy
 infra-destroy:
