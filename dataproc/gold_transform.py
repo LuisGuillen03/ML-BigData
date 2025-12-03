@@ -2,21 +2,23 @@
 Reads bronze, cleans, engineers features, writes with year/month partitions
 """
 
+import sys
 import time
 import json
 from datetime import datetime
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
+CLUSTER_NAME = sys.argv[1] if len(sys.argv) > 1 else "iowa-cluster1"
 BUCKET = "iowa-liquor-medallion-ml"
 BRONZE_PATH = f"gs://{BUCKET}/bronze/iowa_sales"
-GOLD_PATH = f"gs://{BUCKET}/gold/iowa_sales"
+GOLD_PATH = f"gs://{BUCKET}/gold_{CLUSTER_NAME}/iowa_sales"
 
 job_start = time.time()
 timings = {}
 
 stage_start = time.time()
-spark = SparkSession.builder.appName("GoldTransform").getOrCreate()
+spark = SparkSession.builder.appName(f"GoldTransform-{CLUSTER_NAME}").getOrCreate()
 timings["spark_initialization"] = f"{time.time() - stage_start:.2f}s"
 
 stage_start = time.time()
@@ -62,6 +64,7 @@ print(f"✓ Gold layer written to {GOLD_PATH}")
 total_time = time.time() - job_start
 timing_data = {
     "gold_phase": {
+        "cluster_name": CLUSTER_NAME,
         "stages": timings,
         "metadata": {
             "job_completed": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -84,7 +87,7 @@ timing_data = {
 
 timing_json = json.dumps(timing_data, indent=2)
 spark.sparkContext.parallelize([timing_json]).coalesce(1).saveAsTextFile(
-    f"gs://{BUCKET}/job_timing_gold_temp"
+    f"gs://{BUCKET}/job_timing_gold_{CLUSTER_NAME}_temp"
 )
 from subprocess import call
 
@@ -92,11 +95,11 @@ call(
     [
         "gsutil",
         "cp",
-        f"gs://{BUCKET}/job_timing_gold_temp/part-00000",
-        f"gs://{BUCKET}/job_timing_gold.json",
+        f"gs://{BUCKET}/job_timing_gold_{CLUSTER_NAME}_temp/part-00000",
+        f"gs://{BUCKET}/job_timing_gold_{CLUSTER_NAME}.json",
     ]
 )
-call(["gsutil", "rm", "-r", f"gs://{BUCKET}/job_timing_gold_temp"])
+call(["gsutil", "rm", "-r", f"gs://{BUCKET}/job_timing_gold_{CLUSTER_NAME}_temp"])
 
-print(f"✓ Timing saved to gs://{BUCKET}/job_timing_gold.json")
+print(f"✓ Timing saved to gs://{BUCKET}/job_timing_gold_{CLUSTER_NAME}.json")
 spark.stop()
