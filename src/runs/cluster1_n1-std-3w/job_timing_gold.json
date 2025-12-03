@@ -1,0 +1,28 @@
+{
+  "gold_phase": {
+    "cluster_name": "",
+    "stages": {
+      "spark_initialization": "",
+      "read_bronze_data": "",
+      "data_cleaning": "",
+      "feature_engineering": "",
+      "write_to_gold_partitioned": ""
+    },
+    "metadata": {
+      "job_completed": "",
+      "total_time": "",
+      "total_minutes": "",
+      "records_read": 32816143,
+      "records_cleaned": 32801412,
+      "records_removed": 14731,
+      "removal_percentage": "0.04%",
+      "features_added": [
+        "day_of_week",
+        "quarter",
+        "is_weekend",
+        "price_per_bottle",
+        "volume_per_bottle"
+      ]
+    }
+  }
+}
