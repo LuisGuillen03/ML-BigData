@@ -1,17 +1,17 @@
 {
   "gold_phase": {
-    "cluster_name": "",
+    "cluster_name": "iowa-cluster-n1-std-3w",
     "stages": {
-      "spark_initialization": "",
-      "read_bronze_data": "",
-      "data_cleaning": "",
-      "feature_engineering": "",
-      "write_to_gold_partitioned": ""
+      "spark_initialization": "18.73s",
+      "read_bronze_data": "47.60s",
+      "data_cleaning": "183.98s",
+      "feature_engineering": "150.98s",
+      "write_to_gold_partitioned": "1305.39s"
     },
     "metadata": {
-      "job_completed": "",
-      "total_time": "",
-      "total_minutes": "",
+      "job_completed": "2025-12-03 06:27:21",
+      "total_time": "1706.68s",
+      "total_minutes": "28.44",
       "records_read": 32816143,
       "records_cleaned": 32801412,
       "records_removed": 14731,
