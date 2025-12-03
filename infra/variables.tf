@@ -27,3 +27,24 @@ variable "job_name" {
   type        = string
   default     = "bronze-extract-job"
 }
+
+variable "cluster_name" {
+  description = "Dataproc cluster name"
+  type        = string
+}
+
+variable "master_machine_type" {
+  description = "Master node machine type"
+  type        = string
+}
+
+variable "worker_machine_type" {
+  description = "Worker node machine type"
+  type        = string
+}
+
+variable "num_workers" {
+  description = "Number of worker nodes"
+  type        = number
+}
+
