@@ -2,6 +2,8 @@ PROJECT_ID = secure-cipher-475203-k2
 REGION = us-central1
 BUCKET = iowa-liquor-medallion-ml
 REPO_ID = iowa-liquor-ml
+CLUSTER1 = iowa-cluster-n1-std-3w
+CLUSTER2 = iowa-cluster-n2-hm-4w
 
 .PHONY: help
 help:
@@ -77,42 +79,42 @@ upload-gold-script:
 run-gold-c1:
 	gcloud dataproc jobs submit pyspark \
 	  gs://$(BUCKET)/scripts/gold_transform.py \
-	  --cluster=iowa-cluster1 \
+	  --cluster=$(CLUSTER1) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
 	  --id=gold-c1-$$(date +%Y%m%d-%H%M%S) \
-	  -- iowa-cluster1
+	  -- $(CLUSTER1)
 
 .PHONY: run-gold-c2
 run-gold-c2:
 	gcloud dataproc jobs submit pyspark \
 	  gs://$(BUCKET)/scripts/gold_transform.py \
-	  --cluster=iowa-cluster2 \
+	  --cluster=$(CLUSTER2) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
 	  --id=gold-c2-$$(date +%Y%m%d-%H%M%S) \
-	  -- iowa-cluster2
+	  -- $(CLUSTER2)
 
 .PHONY: cluster1-start
 cluster1-start:
-	gcloud dataproc clusters start iowa-cluster1 --region=$(REGION) --project=$(PROJECT_ID)
+	gcloud dataproc clusters start $(CLUSTER1) --region=$(REGION) --project=$(PROJECT_ID)
 
 .PHONY: cluster1-stop
 cluster1-stop:
-	gcloud dataproc clusters stop iowa-cluster1 --region=$(REGION) --project=$(PROJECT_ID)
+	gcloud dataproc clusters stop $(CLUSTER1) --region=$(REGION) --project=$(PROJECT_ID)
 
 .PHONY: cluster1-ssh
 cluster1-ssh:
-	gcloud compute ssh iowa-cluster1-m --zone=$(REGION)-a --project=$(PROJECT_ID)
+	gcloud compute ssh $(CLUSTER1)-m --zone=$(REGION)-a --project=$(PROJECT_ID)
 
 .PHONY: cluster2-start
 cluster2-start:
-	gcloud dataproc clusters start iowa-cluster2 --region=$(REGION) --project=$(PROJECT_ID)
+	gcloud dataproc clusters start $(CLUSTER2) --region=$(REGION) --project=$(PROJECT_ID)
 
 .PHONY: cluster2-stop
 cluster2-stop:
-	gcloud dataproc clusters stop iowa-cluster2 --region=$(REGION) --project=$(PROJECT_ID)
+	gcloud dataproc clusters stop $(CLUSTER2) --region=$(REGION) --project=$(PROJECT_ID)
 
 .PHONY: cluster2-ssh
 cluster2-ssh:
-	gcloud compute ssh iowa-cluster2-m --zone=$(REGION)-a --project=$(PROJECT_ID)
+	gcloud compute ssh $(CLUSTER2)-m --zone=$(REGION)-a --project=$(PROJECT_ID)
