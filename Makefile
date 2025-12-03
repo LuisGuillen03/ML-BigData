@@ -80,7 +80,8 @@ run-gold-c1:
 	  --cluster=iowa-cluster1 \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --id=gold-c1-$$(date +%Y%m%d-%H%M%S)
+	  --id=gold-c1-$$(date +%Y%m%d-%H%M%S) \
+	  -- iowa-cluster1
 
 .PHONY: run-gold-c2
 run-gold-c2:
@@ -89,7 +90,8 @@ run-gold-c2:
 	  --cluster=iowa-cluster2 \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --id=gold-c2-$$(date +%Y%m%d-%H%M%S)
+	  --id=gold-c2-$$(date +%Y%m%d-%H%M%S) \
+	  -- iowa-cluster2
 
 .PHONY: cluster1-start
 cluster1-start:
