@@ -1,0 +1,28 @@
+{
+  "gold_phase": {
+    "cluster_name": "iowa-cluster-n2-hm-4w",
+    "stages": {
+      "spark_initialization": "9.68s",
+      "read_bronze_data": "32.74s",
+      "data_cleaning": "94.33s",
+      "feature_engineering": "69.07s",
+      "write_to_gold_partitioned": "869.92s"
+    },
+    "metadata": {
+      "job_completed": "2025-12-03 05:05:07",
+      "total_time": "1075.75s",
+      "total_minutes": "17.93",
+      "records_read": 32816143,
+      "records_cleaned": 32801412,
+      "records_removed": 14731,
+      "removal_percentage": "0.04%",
+      "features_added": [
+        "day_of_week",
+        "quarter",
+        "is_weekend",
+        "price_per_bottle",
+        "volume_per_bottle"
+      ]
+    }
+  }
+}
