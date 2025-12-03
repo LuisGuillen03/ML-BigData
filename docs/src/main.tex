@@ -159,7 +159,7 @@ Las categorías más vendidas representan una parte significativa del volumen to
 Este dataset fue seleccionado por las siguientes razones:
 
 \begin{enumerate}
-  \item \textbf{Volumen masivo:} Con más de 32 millones de registros, cumple ampliamente con el requisito de ≥32M registros y justifica el uso de procesamiento distribuido con PySpark en Dataproc.
+  \item \textbf{Volumen masivo:} Con más de 32 millones de registros, cumple ampliamente con el requisito de $\geq$32M registros y justifica el uso de procesamiento distribuido con PySpark en Dataproc.
   
   \item \textbf{Datos temporales:} El rango de 13.8 años permite análisis de series temporales y patrones estacionales, ideal para feature engineering temporal.
   
@@ -340,41 +340,183 @@ BigQuery generó múltiples archivos Parquet para optimizar la exportación para
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Procesamiento distribuido en Dataproc}
 
-\subsubsection{Configuración del cluster}
+\subsubsection{Configuración de clusters}
+
+Se provisionaron dos configuraciones de clusters Dataproc mediante \textbf{infraestructura automatizada como código (Terraform)}, permitiendo despliegues reproducibles y parametrizables para evaluar el impacto del tamaño y tipo de máquina en el rendimiento del procesamiento distribuido:
+
+\paragraph{Cluster 1: Configuración estándar (n1-standard).}
+Cluster con perfil balanceado de CPU y memoria, optimizado para cargas de trabajo generales:
 
 \begin{table}[H]
   \centering
-  \caption{Configuración de clusters Dataproc.}
-  \label{tab:cluster-config}
+  \caption{Configuración del Cluster 1 (n1-standard-3w).}
+  \label{tab:cluster1-config}
   \scriptsize
-  \begin{tabular}{@{}llllll@{}}
+  \begin{tabular}{@{}lll@{}}
     \toprule
-    Cluster & Tipo Nodo & Cantidad & vCPU & Memoria & Disco \\
+    Componente & Tipo de Máquina & Recursos \\
     \midrule
-    Cluster 1 & [tipo] & [n] & [vCPU] & [RAM] & [GB] \\
-    Cluster 2 & [tipo] & [n] & [vCPU] & [RAM] & [GB] \\
+    Master & n1-standard-2 & 2 vCPUs, 7.5 GB RAM \\
+    Workers (3x) & n1-standard-2 & 2 vCPUs, 7.5 GB RAM (cada uno) \\
+    \midrule
+    \textbf{Total} & & \textbf{8 vCPUs, 30 GB RAM} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\subsubsection{Lectura del dataset desde GCS}
-[Código y descripción de lectura con PySpark]
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/standard-cluster-images/cluster1_vm_instances_configuration.png}
+  \caption{Configuración de instancias VM del Cluster 1 en Dataproc.}
+  \label{fig:cluster1-vms}
+\end{figure}
 
-\subsubsection{Limpieza, filtrado y transformación}
-[Descripción de las transformaciones aplicadas]
+\paragraph{Cluster 2: Configuración high-memory (n2-highmem).}
+Cluster con perfil de alta memoria, optimizado para cargas de trabajo intensivas en memoria:
 
-\begin{itemize}
-  \item Limpieza de valores nulos
-  \item Filtrado de registros inconsistentes
-  \item Transformación de tipos de datos
-  \item Feature engineering
-\end{itemize}
+\begin{table}[H]
+  \centering
+  \caption{Configuración del Cluster 2 (n2-highmem-4w).}
+  \label{tab:cluster2-config}
+  \scriptsize
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Componente & Tipo de Máquina & Recursos \\
+    \midrule
+    Master & n2-highmem-4 & 4 vCPUs, 32 GB RAM \\
+    Workers (4x) & n2-highmem-2 & 2 vCPUs, 16 GB RAM (cada uno) \\
+    \midrule
+    \textbf{Total} & & \textbf{12 vCPUs, 96 GB RAM} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \begin{figure}[H]
   \centering
-%    \includegraphics[width=0.7\linewidth]{figures/dataproc-cluster.png}
-  \caption{Cluster de Dataproc ejecutando jobs de transformación.}
-  \label{fig:dataproc-cluster}
+  \includegraphics[width=0.8\linewidth]{../img/high-mem-images/cluster2_vm_instances_configuration.png}
+  \caption{Configuración de instancias VM del Cluster 2 en Dataproc.}
+  \label{fig:cluster2-vms}
+\end{figure}
+
+\paragraph{Infraestructura como código (Terraform).}
+Los clusters se provisionan mediante módulos de Terraform con variables parametrizables:
+
+\begin{verbatim}
+# cluster1.tfvars
+cluster_name        = "iowa-cluster-n1-std-3w"
+master_machine_type = "n1-standard-2"
+worker_machine_type = "n1-standard-2"
+num_workers         = 3
+
+# cluster2.tfvars
+cluster_name        = "iowa-cluster-n2-hm-4w"
+master_machine_type = "n2-highmem-4"
+worker_machine_type = "n2-highmem-2"
+num_workers         = 4
+\end{verbatim}
+
+\subsubsection{Lectura del dataset desde GCS mediante PySpark}
+
+El script \texttt{gold\_transform.py} inicializa una sesión de Spark y lee los datos de la capa Bronze almacenados en formato Parquet:
+
+\begin{verbatim}
+BRONZE_PATH = f"gs://{BUCKET}/bronze/iowa_sales"
+df = spark.read.parquet(BRONZE_PATH)
+records_read = df.count()  # 32,816,143 registros
+\end{verbatim}
+
+PySpark distribuye automáticamente la lectura de los múltiples archivos Parquet entre los workers del cluster, aprovechando el paralelismo para optimizar el tiempo de carga.
+
+\subsubsection{Aplicación de limpieza, filtrado y transformación}
+
+El procesamiento de la capa Gold se divide en tres etapas principales:
+
+\paragraph{1. Limpieza de datos.}
+Se aplican filtros para eliminar registros con valores nulos o inconsistentes en campos críticos:
+
+\begin{verbatim}
+df_clean = df.filter(
+    (F.col("sale_dollars").isNotNull()) & (F.col("sale_dollars") > 0)
+    & (F.col("bottles_sold").isNotNull()) & (F.col("bottles_sold") > 0)
+    & (F.col("volume_sold_liters").isNotNull()) 
+    & (F.col("volume_sold_liters") > 0)
+).dropDuplicates()
+\end{verbatim}
+
+\textbf{Resultado:} De 32,816,143 registros iniciales, se limpiaron 32,801,412 registros (99.96\% de retención), eliminando solo 14,731 registros (0.04\%) con datos inconsistentes.
+
+\paragraph{2. Feature engineering.}
+Se generan características derivadas para enriquecer el dataset y mejorar el potencial predictivo:
+
+\begin{itemize}
+  \item \texttt{day\_of\_week}: Día de la semana (1-7) extraído de la fecha
+  \item \texttt{quarter}: Trimestre del año (1-4)
+  \item \texttt{is\_weekend}: Indicador binario (1 si es fin de semana, 0 si no)
+  \item \texttt{price\_per\_bottle}: Precio unitario calculado como \texttt{sale\_dollars / bottles\_sold}
+  \item \texttt{volume\_per\_bottle}: Volumen unitario calculado como \texttt{volume\_sold\_liters / bottles\_sold}
+\end{itemize}
+
+\begin{verbatim}
+df_features = (
+    df_clean
+    .withColumn("day_of_week", F.dayofweek("date"))
+    .withColumn("quarter", F.quarter("date"))
+    .withColumn("is_weekend", 
+        F.when(F.dayofweek("date").isin([1, 7]), 1).otherwise(0))
+    .withColumn("price_per_bottle", 
+        F.col("sale_dollars") / F.col("bottles_sold"))
+    .withColumn("volume_per_bottle", 
+        F.col("volume_sold_liters") / F.col("bottles_sold"))
+)
+\end{verbatim}
+
+\paragraph{3. Escritura particionada a capa Gold.}
+Los datos transformados se escriben en formato Parquet con particionamiento por año y mes para optimizar consultas futuras:
+
+\begin{verbatim}
+GOLD_PATH = f"gs://{BUCKET}/gold_{CLUSTER_NAME}/iowa_sales"
+df_features.write.mode("overwrite")
+    .partitionBy("year", "month")
+    .parquet(GOLD_PATH)
+\end{verbatim}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/cloud-storage-images/gcs_gold_cluster2_year_partitions.png}
+  \caption{Estructura particionada por año en la capa Gold (Cluster 2).}
+  \label{fig:gold-partitions}
+\end{figure}
+
+\subsubsection{Monitoreo de ejecución}
+
+Durante la ejecución de los jobs, se monitorearon métricas de recursos y tiempos mediante la interfaz de Spark History Server y YARN:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/standard-cluster-images/cluster1_history_server_job_summary.png}
+  \caption{Resumen del job en Spark History Server (Cluster 1).}
+  \label{fig:cluster1-history}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/high-mem-images/cluster2_history_server_job_summary.png}
+  \caption{Resumen del job en Spark History Server (Cluster 2).}
+  \label{fig:cluster2-history}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/standard-cluster-images/cluster1_monitoring_cpu_memory.png}
+  \caption{Monitoreo de CPU y memoria durante ejecución (Cluster 1).}
+  \label{fig:cluster1-monitoring}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/high-mem-images/cluster2_monitoring_cpu_memory.png}
+  \caption{Monitoreo de CPU y memoria durante ejecución (Cluster 2).}
+  \label{fig:cluster2-monitoring}
 \end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
