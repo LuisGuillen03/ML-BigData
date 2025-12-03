@@ -10,8 +10,8 @@ resource "google_cloud_run_v2_job" "bronze_extract" {
         
         resources {
           limits = {
-            memory = "1Gi"
-            cpu    = "2"
+            memory = "8Gi"
+            cpu    = "4"
           }
         }
         
@@ -26,7 +26,7 @@ resource "google_cloud_run_v2_job" "bronze_extract" {
         }
       }
       
-      timeout = "1800s"  # 30 minutes
+      timeout = "3600s"
     }
   }
 }
