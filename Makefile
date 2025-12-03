@@ -1,36 +1,57 @@
 PROJECT_ID = secure-cipher-475203-k2
 REGION = us-central1
 BUCKET = iowa-liquor-medallion-ml
-CLUSTER = iowa-cluster1
 REPO_ID = iowa-liquor-ml
 
 .PHONY: help
 help:
 	@echo "Available commands:"
 	@echo "  make help                    - Show this help message"
+	@echo ""
+	@echo "Infrastructure:"
 	@echo "  make infra-init              - Initialize Terraform"
-	@echo "  make infra-plan              - Plan infrastructure changes"
-	@echo "  make infra-apply             - Apply infrastructure changes"
+	@echo "  make infra-plan-c1           - Plan cluster1 (1m+3w n1-standard-2)"
+	@echo "  make infra-plan-c2           - Plan cluster2 (1m+4w n2-highmem)"
+	@echo "  make infra-apply-c1          - Apply cluster1 configuration"
+	@echo "  make infra-apply-c2          - Apply cluster2 configuration"
 	@echo "  make infra-destroy           - Destroy infrastructure"
+	@echo ""
+	@echo "Bronze Layer:"
 	@echo "  make build-bronze-container  - Build and push bronze Docker image"
-	@echo "  make run-bronze-extraction   - Execute bronze extraction job (monthly partitions)"
+	@echo "  make run-bronze-extraction   - Execute bronze extraction job"
+	@echo ""
+	@echo "Gold Layer - Cluster 1:"
 	@echo "  make upload-gold-script      - Upload gold transform script to GCS"
-	@echo "  make run-gold-transform      - Submit gold transform PySpark job"
-	@echo "  make cluster-start           - Start Dataproc cluster"
-	@echo "  make cluster-stop            - Stop Dataproc cluster"
-	@echo "  make cluster-ssh             - SSH into cluster master node"
+	@echo "  make run-gold-c1             - Run gold transform on cluster1"
+	@echo "  make cluster1-start          - Start cluster1"
+	@echo "  make cluster1-stop           - Stop cluster1"
+	@echo "  make cluster1-ssh            - SSH into cluster1"
+	@echo ""
+	@echo "Gold Layer - Cluster 2:"
+	@echo "  make run-gold-c2             - Run gold transform on cluster2"
+	@echo "  make cluster2-start          - Start cluster2"
+	@echo "  make cluster2-stop           - Stop cluster2"
+	@echo "  make cluster2-ssh            - SSH into cluster2"
 
 .PHONY: infra-init
 infra-init:
 	cd infra && terraform init
 
-.PHONY: infra-plan
-infra-plan:
-	cd infra && terraform plan
+.PHONY: infra-plan-c1
+infra-plan-c1:
+	cd infra && terraform plan -var-file=cluster1.tfvars
 
-.PHONY: infra-apply
-infra-apply:
-	cd infra && terraform apply
+.PHONY: infra-plan-c2
+infra-plan-c2:
+	cd infra && terraform plan -var-file=cluster2.tfvars
+
+.PHONY: infra-apply-c1
+infra-apply-c1:
+	cd infra && terraform apply -var-file=cluster1.tfvars
+
+.PHONY: infra-apply-c2
+infra-apply-c2:
+	cd infra && terraform apply -var-file=cluster2.tfvars
 
 .PHONY: infra-destroy
 infra-destroy:
@@ -52,22 +73,44 @@ run-bronze-extraction:
 upload-gold-script:
 	gsutil cp dataproc/gold_transform.py gs://$(BUCKET)/scripts/
 
-.PHONY: run-gold-transform
-run-gold-transform:
+.PHONY: run-gold-c1
+run-gold-c1:
 	gcloud dataproc jobs submit pyspark \
 	  gs://$(BUCKET)/scripts/gold_transform.py \
-	  --cluster=$(CLUSTER) \
+	  --cluster=iowa-cluster1 \
 	  --region=$(REGION) \
-	  --project=$(PROJECT_ID)
+	  --project=$(PROJECT_ID) \
+	  --id=gold-c1-$$(date +%Y%m%d-%H%M%S)
 
-.PHONY: cluster-start
-cluster-start:
-	gcloud dataproc clusters start $(CLUSTER) --region=$(REGION) --project=$(PROJECT_ID)
+.PHONY: run-gold-c2
+run-gold-c2:
+	gcloud dataproc jobs submit pyspark \
+	  gs://$(BUCKET)/scripts/gold_transform.py \
+	  --cluster=iowa-cluster2 \
+	  --region=$(REGION) \
+	  --project=$(PROJECT_ID) \
+	  --id=gold-c2-$$(date +%Y%m%d-%H%M%S)
 
-.PHONY: cluster-stop
-cluster-stop:
-	gcloud dataproc clusters stop $(CLUSTER) --region=$(REGION) --project=$(PROJECT_ID)
+.PHONY: cluster1-start
+cluster1-start:
+	gcloud dataproc clusters start iowa-cluster1 --region=$(REGION) --project=$(PROJECT_ID)
 
-.PHONY: cluster-ssh
-cluster-ssh:
-	gcloud compute ssh $(CLUSTER)-m --zone=$(REGION)-a --project=$(PROJECT_ID)
+.PHONY: cluster1-stop
+cluster1-stop:
+	gcloud dataproc clusters stop iowa-cluster1 --region=$(REGION) --project=$(PROJECT_ID)
+
+.PHONY: cluster1-ssh
+cluster1-ssh:
+	gcloud compute ssh iowa-cluster1-m --zone=$(REGION)-a --project=$(PROJECT_ID)
+
+.PHONY: cluster2-start
+cluster2-start:
+	gcloud dataproc clusters start iowa-cluster2 --region=$(REGION) --project=$(PROJECT_ID)
+
+.PHONY: cluster2-stop
+cluster2-stop:
+	gcloud dataproc clusters stop iowa-cluster2 --region=$(REGION) --project=$(PROJECT_ID)
+
+.PHONY: cluster2-ssh
+cluster2-ssh:
+	gcloud compute ssh iowa-cluster2-m --zone=$(REGION)-a --project=$(PROJECT_ID)
