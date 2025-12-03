@@ -1,0 +1,407 @@
+\documentclass[10pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\decimalpoint
+\usepackage{amsmath, amssymb}
+\usepackage{xcolor}
+\usepackage{geometry}
+\geometry{letterpaper, margin=1in}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{colortbl}
+\usepackage{caption}
+\usepackage{tocloft}
+
+\usepackage[colorlinks=true, linkcolor=black, urlcolor=black, citecolor=black]{hyperref}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DOCUMENT METADATA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{Universidad Panamericana \\ 
+    Maestría en Ciencia de Datos \\ 
+    Datos Masivos \\ 
+    \vspace{0.5cm} 
+    Proyecto Final: \textit{Pipeline Distribuido de Predicción para Iowa Liquor Sales en GCP}}
+\author{Enrique Ulises Báez Gómez Tagle, Luis Alejandro Guillén Alvarez}
+\date{\today}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 1. DATASET UTILIZADO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Dataset utilizado}
+\subsection{Fuente y descripción}
+
+El dataset utilizado proviene de \textbf{BigQuery Public Data} y contiene registros de ventas de licores en el estado de Iowa, Estados Unidos. Este conjunto de datos es mantenido por el Iowa Department of Commerce y está disponible públicamente para análisis.
+
+\begin{itemize}
+  \item \textbf{Fuente:} BigQuery Public Data - \texttt{bigquery-public-data.iowa\_liquor\_sales.sales}
+  \item \textbf{Tamaño:} 32,816,143 registros
+  \item \textbf{Periodo:} 2012-01-03 a 2025-10-31 (13.8 años)
+  \item \textbf{Características principales:}
+  \begin{itemize}
+    \item \texttt{date}: Fecha de la transacción
+    \item \texttt{store\_number}: Identificador de la tienda
+    \item \texttt{city}: Ciudad donde se realizó la venta
+    \item \texttt{category}: Categoría del producto
+    \item \texttt{item\_number}: Identificador del producto
+    \item \texttt{sale\_dollars}: Monto de la venta (variable objetivo)
+    \item \texttt{bottles\_sold}: Cantidad de botellas vendidas
+    \item \texttt{volume\_sold\_liters}: Volumen vendido en litros
+  \end{itemize}
+\end{itemize}
+
+\subsection{Cardinalidades y dimensiones}
+
+El dataset presenta alta cardinalidad en múltiples dimensiones, lo que lo hace ideal para procesamiento distribuido:
+
+\begin{table}[H]
+  \centering
+  \caption{Cardinalidades del dataset Iowa Liquor Sales.}
+  \label{tab:cardinalities}
+  \scriptsize
+  \begin{tabular}{@{}lr@{}}
+    \toprule
+    Dimensión & Valores Únicos \\
+    \midrule
+    Tiendas & 3,337 \\
+    Ciudades & 504 \\
+    Productos & 15,183 \\
+    Categorías & 185 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Calidad de los datos}
+
+El análisis exploratorio reveló una excelente calidad de datos con mínimos valores faltantes:
+
+\begin{table}[H]
+  \centering
+  \caption{Valores nulos por campo.}
+  \label{tab:missing-values}
+  \scriptsize
+  \begin{tabular}{@{}lrr@{}}
+    \toprule
+    Campo & Valores Nulos & Porcentaje \\
+    \midrule
+    sale\_dollars & 10 & 0.00003\% \\
+    category & 16,974 & 0.052\% \\
+    city & 84,575 & 0.258\% \\
+    \midrule
+    \textbf{Total} & \textbf{101,559} & \textbf{0.31\%} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textbf{Calidad general:} 99.69\% de datos completos, lo que indica un dataset de alta calidad para modelado predictivo.
+
+\subsection{Distribución de ventas}
+
+La distribución de la variable objetivo (\texttt{sale\_dollars}) muestra las siguientes características:
+
+\begin{table}[H]
+  \centering
+  \caption{Distribución de ventas en dólares.}
+  \label{tab:sales-distribution}
+  \scriptsize
+  \begin{tabular}{@{}lr@{}}
+    \toprule
+    Percentil & Valor (USD) \\
+    \midrule
+    P50 (Mediana) & \$78.66 \\
+    P90 & \$269.88 \\
+    P99 & \$1,185.60 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Top 10 categorías por volumen de ventas}
+
+Las categorías más vendidas representan una parte significativa del volumen total de transacciones:
+
+\begin{table}[H]
+  \centering
+  \caption{Top 10 categorías por ventas totales.}
+  \label{tab:top-categories}
+  \scriptsize
+  \begin{tabular}{@{}rlrr@{}}
+    \toprule
+    Rank & Categoría & Ventas Totales (USD) & Transacciones \\
+    \midrule
+    1 & 1012100.0 & \$495,078,200 & 2,778,490 \\
+    2 & 1031100.0 & \$441,329,100 & 2,988,622 \\
+    3 & 1011200.0 & \$288,427,900 & 1,859,256 \\
+    4 & 1081600.0 & \$219,643,200 & 1,360,017 \\
+    5 & 1062400.0 & \$169,326,700 & 861,360 \\
+    6 & 1022200.0 & \$152,794,300 & 668,286 \\
+    7 & 1031080.0 & \$145,760,500 & 1,265,930 \\
+    8 & 1022100.0 & \$143,383,100 & 849,580 \\
+    9 & 1011400.0 & \$119,534,300 & 538,956 \\
+    10 & 1011100.0 & \$117,536,600 & 1,213,606 \\
+    \midrule
+    \textbf{Total Top 10} & & \textbf{\$2,292,813,900} & \textbf{15,384,103} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Justificación de selección}
+
+Este dataset fue seleccionado por las siguientes razones:
+
+\begin{enumerate}
+  \item \textbf{Volumen masivo:} Con más de 32 millones de registros, cumple ampliamente con el requisito de ≥32M registros y justifica el uso de procesamiento distribuido con PySpark en Dataproc.
+  
+  \item \textbf{Datos temporales:} El rango de 13.8 años permite análisis de series temporales y patrones estacionales, ideal para feature engineering temporal.
+  
+  \item \textbf{Alta dimensionalidad:} La combinación de 15K+ productos, 185 categorías, 3.3K tiendas y 504 ciudades proporciona un espacio de características rico para modelado predictivo.
+  
+  \item \textbf{Calidad excepcional:} Con 99.69\% de datos completos, minimiza la necesidad de imputación compleja y permite enfocarse en transformaciones y modelado.
+  
+  \item \textbf{Variable objetivo continua:} \texttt{sale\_dollars} es una variable continua ideal para regresión lineal, permitiendo predecir montos de venta basados en características de productos, ubicación y temporalidad.
+  
+  \item \textbf{Disponibilidad pública:} Al estar en BigQuery Public Data, facilita la reproducibilidad del proyecto y el acceso sin restricciones de licenciamiento.
+  
+  \item \textbf{Relevancia práctica:} Los modelos predictivos de ventas tienen aplicaciones directas en optimización de inventario, planificación de demanda y estrategias de pricing.
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 2. ARQUITECTURA IMPLEMENTADA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Descripción de la arquitectura implementada}
+
+\subsection{Diagrama de arquitectura}
+
+La arquitectura implementada sigue un patrón de medallion con dos capas (Bronze y Gold) sobre Google Cloud Platform, integrando servicios de almacenamiento, procesamiento distribuido y análisis de datos masivos.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{../figures/architecture/iowa-liquor-sales-ml-pipeline-architecture.png}
+    \caption{Arquitectura del pipeline distribuido: BigQuery → Cloud Run → GCS Bronze → Dataproc → GCS Gold → ML Model (***PLANNED***).}
+    \label{fig:architecture}
+\end{figure}
+
+\subsection{Flujo de datos}
+
+El pipeline implementa un flujo de datos end-to-end con las siguientes etapas:
+
+\begin{enumerate}
+  \item \textbf{Fuente de datos (BigQuery):} El dataset público \texttt{iowa\_liquor\_sales} (32M+ registros) sirve como origen de datos. Los scripts de EDA (\texttt{eda\_iowa.py} y \texttt{eda\_iowa.ipynb}) realizan análisis exploratorio inicial directamente sobre BigQuery.
+  
+  \item \textbf{Extracción (Cloud Run):} Un servicio ETL desplegado en Cloud Run ejecuta \texttt{bronze\_extract.py}, que extrae datos desde BigQuery y los carga en formato Parquet particionado hacia la capa Bronze en Google Cloud Storage.
+  
+  \item \textbf{Capa Bronze (GCS):} Almacenamiento de datos crudos en formato Parquet con particionamiento temporal, preservando la estructura original para trazabilidad y reproducibilidad.
+  
+  \item \textbf{Transformación (Dataproc):} Un cluster de Dataproc ejecuta \texttt{gold\_transform.py} con PySpark, aplicando limpieza, transformaciones y feature engineering sobre los datos Bronze. El procesamiento distribuido permite manejar el volumen masivo de forma eficiente.
+  
+  \item \textbf{Capa Gold (GCS):} Datos limpios, transformados y enriquecidos con features derivadas, almacenados en formato Parquet particionado y optimizados para consumo analítico y modelado ML.
+  
+  \item \textbf{Modelado ML (***PLANNED***):} Modelo de regresión lineal con PySpark MLlib entrenado sobre la capa Gold para predicción de ventas, con evaluación de métricas (R², RMSE, MAE) y comparación de performance entre configuraciones de cluster.
+\end{enumerate}
+
+\subsection{Componentes de la arquitectura}
+
+\begin{itemize}
+  \item \textbf{BigQuery:} Fuente de datos pública (\texttt{bigquery-public-data.iowa\_liquor\_sales.sales})
+  \item \textbf{Cloud Run:} Servicio ETL serverless para extracción batch hacia capa Bronze
+  \item \textbf{GCS Bronze Layer:} Almacenamiento de datos crudos en formato Parquet particionado
+  \item \textbf{Dataproc (PySpark):} Cluster de procesamiento distribuido para transformación y feature engineering
+  \item \textbf{GCS Gold Layer:} Datos refinados listos para análisis y modelado
+  \item \textbf{Terraform:} Infraestructura como código para provisionar clusters Dataproc con diferentes configuraciones
+  \item \textbf{ML Model (***PLANNED***):} Modelo de regresión PySpark MLlib para predicción de ventas
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 3. DESARROLLO DE LA RUTA ELEGIDA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Desarrollo de la ruta elegida: Procesamiento Distribuido con PySpark}
+
+\subsection{Selección y exportación del dataset hacia GCS}
+
+\subsubsection{Proceso de exportación}
+[Descripción del proceso de extracción desde BigQuery hacia GCS]
+
+\subsubsection{Verificación de estructura y consistencia}
+[Validaciones realizadas sobre los datos exportados]
+
+\begin{figure}[H]
+  \centering
+%    \includegraphics[width=0.7\linewidth]{figures/gcs-bucket.png}
+  \caption{Bucket de GCS con capas Bronze y Gold.}
+  \label{fig:gcs-bucket}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Procesamiento distribuido en Dataproc}
+
+\subsubsection{Configuración del cluster}
+
+\begin{table}[H]
+  \centering
+  \caption{Configuración de clusters Dataproc.}
+  \label{tab:cluster-config}
+  \scriptsize
+  \begin{tabular}{@{}llllll@{}}
+    \toprule
+    Cluster & Tipo Nodo & Cantidad & vCPU & Memoria & Disco \\
+    \midrule
+    Cluster 1 & [tipo] & [n] & [vCPU] & [RAM] & [GB] \\
+    Cluster 2 & [tipo] & [n] & [vCPU] & [RAM] & [GB] \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Lectura del dataset desde GCS}
+[Código y descripción de lectura con PySpark]
+
+\subsubsection{Limpieza, filtrado y transformación}
+[Descripción de las transformaciones aplicadas]
+
+\begin{itemize}
+  \item Limpieza de valores nulos
+  \item Filtrado de registros inconsistentes
+  \item Transformación de tipos de datos
+  \item Feature engineering
+\end{itemize}
+
+\begin{figure}[H]
+  \centering
+%    \includegraphics[width=0.7\linewidth]{figures/dataproc-cluster.png}
+  \caption{Cluster de Dataproc ejecutando jobs de transformación.}
+  \label{fig:dataproc-cluster}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Modelado predictivo en PySpark (***PLANNED***)}
+
+\subsubsection{Modelo seleccionado}
+[Descripción del modelo de regresión lineal seleccionado]
+
+\subsubsection{Entrenamiento del modelo}
+[Proceso de entrenamiento sobre Gold layer]
+
+\subsubsection{Métricas de evaluación}
+[Tabla con métricas: R², RMSE, MAE]
+
+\begin{table}[H]
+  \centering
+  \caption{Métricas de evaluación del modelo.}
+  \label{tab:model-metrics}
+  \scriptsize
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    Métrica & Cluster 1 & Cluster 2 \\
+    \midrule
+    R² & [valor] & [valor] \\
+    RMSE & [valor] & [valor] \\
+    MAE & [valor] & [valor] \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Evaluación comparativa entre configuraciones de cluster}
+
+\subsubsection{Métricas de tiempo de ejecución}
+
+\begin{table}[H]
+  \centering
+  \caption{Comparativa de tiempos de ejecución.}
+  \label{tab:time-comparison}
+  \scriptsize
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    Etapa & Cluster 1 & Cluster 2 & Diferencia \\
+    \midrule
+    Lectura Bronze & [tiempo] & [tiempo] & [\%] \\
+    Transformación & [tiempo] & [tiempo] & [\%] \\
+    Escritura Gold & [tiempo] & [tiempo] & [\%] \\
+    Total & [tiempo] & [tiempo] & [\%] \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+%    \includegraphics[width=0.7\linewidth]{figures/job-ui-metrics.png}
+  \caption{Job UI de Dataproc mostrando métricas de tiempo y recursos.}
+  \label{fig:job-ui}
+\end{figure}
+
+\subsubsection{Análisis de latencia, paralelismo y escalabilidad}
+[Interpretación de cómo el tamaño del cluster afecta la ejecución]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 4. RESULTADOS Y ANÁLISIS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Métricas, gráficas y análisis de resultados}
+
+\subsection{Interpretación de resultados}
+[Análisis de los resultados obtenidos]
+
+\subsection{Justificación del muestreo}
+[Explicación de las decisiones de muestreo si aplica]
+
+\subsection{Evaluación del desempeño del modelo}
+[Análisis crítico del desempeño]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 5. ANÁLISIS CRÍTICO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Análisis crítico del enfoque}
+
+\subsection{Ventajas del enfoque elegido}
+\begin{itemize}
+  \item [Ventaja 1]
+  \item [Ventaja 2]
+  \item [Ventaja 3]
+\end{itemize}
+
+\subsection{Limitaciones del enfoque elegido}
+\begin{itemize}
+  \item [Limitación 1]
+  \item [Limitación 2]
+  \item [Limitación 3]
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 6. CONCLUSIONES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusiones}
+
+[Conclusiones generales del proyecto]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 7. CÓDIGO Y REPOSITORIO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Código utilizado}
+
+\subsection{Script principal de PySpark}
+[Referencia al script principal]
+
+\subsection{Repositorio de código fuente}
+\url{https://github.com/[usuario]/ML-BigData}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCIAS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Referencias}
+
+\begin{itemize}
+  \item Google LLC (s. f.). Google Cloud Console. \url{https://console.cloud.google.com/}
+  \item Google Cloud. (2024). Crea un clúster de Dataproc con la consola de Google Cloud. \url{https://cloud.google.com/dataproc/docs/quickstarts/create-cluster-console?hl=es-419}
+  \item BigQuery Public Data. Iowa Liquor Sales. \url{https://console.cloud.google.com/marketplace/product/iowa-department-of-commerce/iowa-liquor-sales}
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
