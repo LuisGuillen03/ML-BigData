@@ -16,3 +16,6 @@ venv/
 *.tfstate.*
 .terraform.lock.hcl
 
+docs/src/*
+!docs/src/main.tex
+!docs/src/main.pdf
