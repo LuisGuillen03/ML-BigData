@@ -4,7 +4,7 @@ Proyecto de analítica predictiva en entornos de datos masivos utilizando arquit
 
 ## Arquitectura
 
-![Architecture Diagram](src/infra/architecture/iowa-liquor-sales-ml-pipeline-architecture.drawio)
+![Architecture Diagram](docs/figures/architecture/iowa-liquor-sales-ml-pipeline-architecture.png)
 
 **Flujo de datos:**
 1. **BigQuery** → Dataset público `iowa_liquor_sales` (32M+ registros)
