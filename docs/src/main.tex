@@ -550,34 +550,169 @@ Durante la ejecución de los jobs, se monitorearon métricas de recursos y tiemp
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Evaluación comparativa entre configuraciones de cluster}
 
-\subsubsection{Métricas de tiempo de ejecución}
+\subsubsection{Comparación en Data Engineering (ETL y Transformación)}
+
+\paragraph{Métricas de tiempo de ejecución por etapa.}
+
+La fase de transformación Gold se ejecutó en ambos clusters con resultados significativamente diferentes:
 
 \begin{table}[H]
   \centering
-  \caption{Comparativa de tiempos de ejecución.}
-  \label{tab:time-comparison}
+  \caption{Comparativa de tiempos de ejecución - Fase Gold (Data Engineering).}
+  \label{tab:time-comparison-de}
   \scriptsize
   \begin{tabular}{@{}lccc@{}}
     \toprule
-    Etapa & Cluster 1 & Cluster 2 & Diferencia \\
+    Etapa & Cluster 1 & Cluster 2 & Mejora \\
     \midrule
-    Lectura Bronze & [tiempo] & [tiempo] & [\%] \\
-    Transformación & [tiempo] & [tiempo] & [\%] \\
-    Escritura Gold & [tiempo] & [tiempo] & [\%] \\
-    Total & [tiempo] & [tiempo] & [\%] \\
+    Inicialización Spark & 18.73s & 9.68s & 48.3\% más rápido \\
+    Lectura Bronze & 47.60s & 32.74s & 31.2\% más rápido \\
+    Limpieza de datos & 183.98s & 94.33s & 48.7\% más rápido \\
+    Feature engineering & 150.98s & 69.07s & 54.2\% más rápido \\
+    Escritura Gold particionada & 1305.39s & 869.92s & 33.4\% más rápido \\
+    \midrule
+    \textbf{Total Gold Phase} & \textbf{1706.68s (28.44 min)} & \textbf{1075.75s (17.93 min)} & \textbf{36.8\% más rápido} \\
+    \midrule
+    \textbf{Pipeline completo} & \textbf{1715.19s (28.59 min)} & \textbf{1084.26s (18.07 min)} & \textbf{36.8\% más rápido} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
+\paragraph{Análisis de performance por etapa.}
+
+\begin{itemize}
+  \item \textbf{Inicialización Spark (48.3\% mejora):} El Cluster 2 con mayor memoria (96 GB vs 30 GB) permite una inicialización más rápida del contexto de Spark y asignación de recursos.
+  
+  \item \textbf{Lectura Bronze (31.2\% mejora):} La lectura distribuida de archivos Parquet se beneficia del mayor número de workers (4 vs 3) y mayor memoria disponible para cacheo.
+  
+  \item \textbf{Limpieza de datos (48.7\% mejora):} Las operaciones de filtrado y deduplicación son intensivas en memoria. El perfil high-memory del Cluster 2 reduce significativamente los spills a disco.
+  
+  \item \textbf{Feature engineering (54.2\% mejora):} La etapa con mayor mejora relativa. Las transformaciones complejas (cálculos de columnas derivadas) se benefician enormemente de la mayor memoria disponible por worker.
+  
+  \item \textbf{Escritura Gold (33.4\% mejora):} El particionamiento por año/mes requiere shuffling intensivo. El Cluster 2 maneja mejor el shuffle con mayor memoria y más workers.
+\end{itemize}
+
 \begin{figure}[H]
   \centering
-%    \includegraphics[width=0.7\linewidth]{figures/job-ui-metrics.png}
-  \caption{Job UI de Dataproc mostrando métricas de tiempo y recursos.}
-  \label{fig:job-ui}
+  \includegraphics[width=0.8\linewidth]{../img/standard-cluster-images/cluster1_stages_timing_breakdown.png}
+  \caption{Desglose de tiempos por stage en Cluster 1.}
+  \label{fig:cluster1-stages}
 \end{figure}
 
-\subsubsection{Análisis de latencia, paralelismo y escalabilidad}
-[Interpretación de cómo el tamaño del cluster afecta la ejecución]
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/high-mem-images/cluster2_stages_timing_breakdown.png}
+  \caption{Desglose de tiempos por stage en Cluster 2.}
+  \label{fig:cluster2-stages}
+\end{figure}
+
+\paragraph{Análisis de latencia, paralelismo y escalabilidad.}
+
+\begin{itemize}
+  \item \textbf{Latencia:} El Cluster 2 reduce la latencia total en 630.93 segundos (10.52 minutos), representando una mejora del 36.8\%. Esta reducción es consistente en todas las etapas, indicando que el cuello de botella principal era la memoria disponible.
+
+  \item \textbf{Paralelismo:} El Cluster 2 con 4 workers vs 3 del Cluster 1 permite mayor paralelización de tareas. Sin embargo, la mejora no es proporcional al 33\% adicional de workers, sino que se amplifica por la mayor memoria disponible (96 GB vs 30 GB = 3.2x más memoria).
+
+  \item \textbf{Escalabilidad:} Los resultados demuestran que para datasets de 32M+ registros con transformaciones complejas, la memoria es el factor limitante más crítico que el número de cores. El Cluster 2 con perfil high-memory escala mejor que el Cluster 1 estándar.
+\end{itemize}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/standard-cluster-images/cluster1_executors_resource_utilization.png}
+  \caption{Utilización de recursos por executors en Cluster 1.}
+  \label{fig:cluster1-executors}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/high-mem-images/cluster2_executors_resource_utilization.png}
+  \caption{Utilización de recursos por executors en Cluster 2.}
+  \label{fig:cluster2-executors}
+\end{figure}
+
+\paragraph{Análisis de costos.}
+
+\begin{itemize}
+  \item \textbf{Conclusión de costos:} El Cluster 2 cuesta 27\% más por job pero entrega 36.8\% de mejora en tiempo. Este trade-off es favorable para cargas de trabajo time-sensitive o cuando se ejecutan múltiples jobs diarios.
+\end{itemize}
+
+\begin{table}[H]
+  \centering
+  \caption{Análisis de costos por configuración de cluster.}
+  \label{tab:cost-analysis}
+  \scriptsize
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    Concepto & Cluster 1 & Cluster 2 \\
+    \midrule
+    Costo por hora (Compute Engine) & \$0.3800/hr & \$0.8040/hr \\
+    Costo por hora (Dataproc) & \$0.0800/hr & \$0.1200/hr \\
+    \textbf{Costo total por hora} & \textbf{\$0.4600/hr} & \textbf{\$0.9240/hr} \\
+    \midrule
+    Tiempo de ejecución & 28.59 min & 18.07 min \\
+    \textbf{Costo por job} & \textbf{\$0.219} & \textbf{\$0.278} \\
+    \midrule
+    Diferencia de costo & \multicolumn{2}{c}{\$0.059 más (27\% premium)} \\
+    Mejora de tiempo & \multicolumn{2}{c}{36.8\% más rápido} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+
+
+\subsubsection{Comparación en Data Science (Modelado ML) (***PLANNED***)}
+
+\paragraph{Métricas de entrenamiento del modelo.}
+
+\textit{Esta sección documentará la comparación de performance entre clusters durante el entrenamiento del modelo de regresión lineal con PySpark MLlib una vez implementado.}
+
+\begin{table}[H]
+  \centering
+  \caption{Comparativa de tiempos de entrenamiento ML (***PLANNED***).}
+  \label{tab:time-comparison-ml}
+  \scriptsize
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    Etapa & Cluster 1 & Cluster 2 & Mejora \\
+    \midrule
+    Carga de datos Gold & [tiempo] & [tiempo] & [\%] \\
+    Preparación de features & [tiempo] & [tiempo] & [\%] \\
+    Entrenamiento del modelo & [tiempo] & [tiempo] & [\%] \\
+    Evaluación y métricas & [tiempo] & [tiempo] & [\%] \\
+    \midrule
+    \textbf{Total ML Phase} & \textbf{[tiempo]} & \textbf{[tiempo]} & \textbf{[\%]} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Métricas de calidad del modelo.}
+
+\begin{table}[H]
+  \centering
+  \caption{Comparativa de métricas de evaluación del modelo (***PLANNED***).}
+  \label{tab:model-metrics-comparison}
+  \scriptsize
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    Métrica & Cluster 1 & Cluster 2 \\
+    \midrule
+    R² (coeficiente de determinación) & [valor] & [valor] \\
+    RMSE (error cuadrático medio) & [valor] & [valor] \\
+    MAE (error absoluto medio) & [valor] & [valor] \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Análisis de escalabilidad en ML.}
+
+\textit{Se evaluará cómo la configuración del cluster afecta:}
+
+\begin{itemize}
+  \item \textbf{Convergencia del modelo:} Tiempo hasta alcanzar convergencia en el algoritmo de optimización
+  \item \textbf{Iteraciones por segundo:} Throughput de iteraciones durante el entrenamiento
+  \item \textbf{Utilización de memoria:} Impacto de la memoria disponible en el cacheo de datos de entrenamiento
+  \item \textbf{Paralelización de cross-validation:} Beneficio de mayor número de workers en validación cruzada
+\end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 4. RESULTADOS Y ANÁLISIS
@@ -630,18 +765,31 @@ En lugar de muestreo para reducir volumen, se implementaron las siguientes estra
 \section{Análisis crítico del enfoque}
 
 \subsection{Ventajas del enfoque elegido}
-\begin{itemize}
-  \item [Ventaja 1]
-  \item [Ventaja 2]
-  \item [Ventaja 3]
-\end{itemize}
+
+\begin{enumerate}
+  \item \textbf{Escalabilidad horizontal demostrada:} El enfoque de procesamiento distribuido con PySpark en Dataproc permite escalar horizontalmente agregando más workers al cluster. Los resultados muestran que el Cluster 2 con 4 workers y mayor memoria procesó 32M+ registros 36.8\% más rápido que el Cluster 1 con 3 workers, validando la capacidad de escalar para volúmenes aún mayores sin cambios arquitectónicos.
+  
+  \item \textbf{Arquitectura medallion reproducible:} La implementación de capas Bronze y Gold con infraestructura como código (Terraform) garantiza reproducibilidad completa del pipeline. Cualquier miembro del equipo puede provisionar la infraestructura exacta y ejecutar el mismo flujo de datos, facilitando colaboración y debugging.
+  
+  \item \textbf{Separación de responsabilidades (Data Engineering vs Data Science):} La arquitectura separa claramente la fase de ETL/transformación (Data Engineering en capas Bronze/Gold) de la fase de modelado (Data Science sobre Gold layer). Esto permite que equipos especializados trabajen en paralelo y optimicen cada fase independientemente.
+  
+  \item \textbf{Optimización de costos mediante comparación empírica:} Al evaluar dos configuraciones de cluster con métricas detalladas de tiempo y costo, se puede tomar decisiones informadas sobre el trade-off costo-performance. El análisis mostró que el Cluster 2 cuesta 27\% más pero entrega 36.8\% de mejora en tiempo, permitiendo elegir la configuración óptima según prioridades del negocio.
+  
+  \item \textbf{Formato columnar optimizado (Parquet):} El uso de Parquet con particionamiento por año/mes reduce significativamente el tiempo de lectura y el costo de consultas. Este formato es usado para data lakes y permite compresión eficiente sin sacrificar velocidad de acceso.
+  
+  \item \textbf{[ESPACIO PARA VENTAJA ADICIONAL SOBRE MODELO ML]}
+\end{enumerate}
 
 \subsection{Limitaciones del enfoque elegido}
-\begin{itemize}
-  \item [Limitación 1]
-  \item [Limitación 2]
-  \item [Limitación 3]
-\end{itemize}
+
+\begin{enumerate}
+  \item \textbf{Procesamiento batch sin capacidad de tiempo real:} El pipeline actual opera en modo batch con ejecución manual o programada. No existe capacidad de procesamiento en streaming o near-real-time, lo que limita su aplicabilidad para casos de uso que requieren predicciones inmediatas (e.g., detección de fraude en tiempo real, recomendaciones instantáneas). La latencia mínima del pipeline completo es de ~18 minutos (Cluster 2), inadecuada para escenarios time-sensitive.
+  
+  \item \textbf{Ausencia de entrenamiento incremental/online:} El modelo requiere reentrenamiento completo sobre todo el dataset cada vez que se actualice. No existe mecanismo de online learning o entrenamiento incremental que permita actualizar el modelo con nuevos datos sin reprocesar el histórico completo. Esto incrementa costos y tiempo de actualización del modelo en producción.
+  
+  \item \textbf{Dependencia de infraestructura cloud específica (GCP):} La arquitectura está fuertemente acoplada a servicios de Google Cloud Platform (BigQuery, Cloud Run, Dataproc, GCS). Migrar a otro proveedor cloud (AWS, Azure) requeriría reescribir componentes significativos del pipeline, limitando la portabilidad y aumentando el vendor lock-in.
+  \item \textbf{[ESPACIO PARA LIMITACIÓN ADICIONAL SOBRE MODELO ML]}
+\end{enumerate}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 6. CONCLUSIONES
@@ -655,11 +803,8 @@ En lugar de muestreo para reducir volumen, se implementaron las siguientes estra
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Código utilizado}
 
-\subsection{Script principal de PySpark}
-[Referencia al script principal]
-
 \subsection{Repositorio de código fuente}
-\url{https://github.com/[usuario]/ML-BigData}
+\url{https://github.com/LuisGuillen03/ML-BigData}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % REFERENCIAS
@@ -669,6 +814,10 @@ En lugar de muestreo para reducir volumen, se implementaron las siguientes estra
 \begin{itemize}
   \item Google LLC (s. f.). Google Cloud Console. \url{https://console.cloud.google.com/}
   \item Google Cloud. (2024). Crea un clúster de Dataproc con la consola de Google Cloud. \url{https://cloud.google.com/dataproc/docs/quickstarts/create-cluster-console?hl=es-419}
+  \item Google Cloud. (2024). Dataproc Pricing. \url{https://cloud.google.com/dataproc/pricing}
+  \item Google Cloud. (2024). Compute Engine Pricing. \url{https://cloud.google.com/compute/all-pricing}
+  \item Google Cloud. (2024). Cloud Run Pricing. \url{https://cloud.google.com/run/pricing}
+  \item Google Cloud. (2024). Deploy a Cloud Run job. \url{https://cloud.google.com/run/docs/create-jobs}
   \item BigQuery Public Data. Iowa Liquor Sales. \url{https://console.cloud.google.com/marketplace/product/iowa-department-of-commerce/iowa-liquor-sales}
 \end{itemize}
 
