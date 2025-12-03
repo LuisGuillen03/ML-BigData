@@ -37,13 +37,13 @@ module "cloud_run" {
   depends_on = [module.artifact_registry]
 }
 
-module "dataproc_cluster1" {
+module "dataproc" {
   source              = "./modules/dataproc"
   project_id          = var.project_id
   region              = var.region
-  cluster_name        = "iowa-cluster1"
+  cluster_name        = var.cluster_name
   staging_bucket      = module.storage.bucket_name
-  master_machine_type = "n1-standard-2"
-  worker_machine_type = "n1-standard-2"
-  num_workers         = 3
+  master_machine_type = var.master_machine_type
+  worker_machine_type = var.worker_machine_type
+  num_workers         = var.num_workers
 }
