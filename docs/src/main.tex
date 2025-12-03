@@ -228,17 +228,114 @@ El pipeline implementa un flujo de datos end-to-end con las siguientes etapas:
 \subsection{Selección y exportación del dataset hacia GCS}
 
 \subsubsection{Proceso de exportación}
-[Descripción del proceso de extracción desde BigQuery hacia GCS]
 
-\subsubsection{Verificación de estructura y consistencia}
-[Validaciones realizadas sobre los datos exportados]
+La extracción de datos desde BigQuery hacia Google Cloud Storage se implementó mediante un servicio ETL desplegado en Cloud Run, diseñado para ejecutarse como job batch serverless. El proceso consta de tres etapas principales:
+
+\paragraph{Etapa 1: Creación de tabla temporal con particionamiento.}
+El script \texttt{bronze\_extract.py} ejecuta una consulta SQL que selecciona todos los registros del dataset público y agrega columnas derivadas de año y mes para facilitar el particionamiento posterior en PySpark:
+
+\begin{verbatim}
+SELECT 
+    *,
+    EXTRACT(YEAR FROM date) as year,
+    EXTRACT(MONTH FROM date) as month
+FROM `bigquery-public-data.iowa_liquor_sales.sales`
+\end{verbatim}
+
+Esta consulta materializa una tabla temporal en el dataset \texttt{ml\_work.bronze\_temp} del proyecto, permitiendo una exportación eficiente sin modificar la fuente original.
+
+\paragraph{Etapa 2: Exportación a formato Parquet.}
+Utilizando la API de BigQuery, se exportan los datos desde la tabla temporal hacia Google Cloud Storage en formato Parquet, un formato columnar optimizado para procesamiento distribuido:
+
+\begin{itemize}
+  \item \textbf{Destino:} \texttt{gs://iowa-liquor-medallion-ml/bronze/iowa\_sales/*.parquet}
+  \item \textbf{Formato:} Parquet (columnar, comprimido)
+  \item \textbf{Particionamiento:} Múltiples archivos generados automáticamente por BigQuery
+\end{itemize}
+
+\paragraph{Etapa 3: Limpieza y registro de métricas.}
+Una vez completada la exportación, se elimina la tabla temporal y se registran las métricas de tiempo en un archivo JSON almacenado en GCS para trazabilidad.
+
+\subsubsection{Configuración de Cloud Run}
+
+El servicio se despliega mediante un contenedor Docker con las siguientes características:
+
+\begin{itemize}
+  \item \textbf{Imagen base:} \texttt{python:3.11-slim}
+  \item \textbf{Dependencias:} \texttt{google-cloud-bigquery}, \texttt{google-cloud-storage}, \texttt{pandas}, \texttt{pyarrow}, \texttt{db-dtypes}
+  \item \textbf{Tipo de ejecución:} Cloud Run Job (batch, no HTTP)
+  \item \textbf{Variables de entorno:}
+  \begin{itemize}
+    \item \texttt{PROJECT\_ID}: \texttt{secure-cipher-475203-k2}
+    \item \texttt{BUCKET\_NAME}: \texttt{iowa-liquor-medallion-ml}
+  \end{itemize}
+\end{itemize}
 
 \begin{figure}[H]
   \centering
-%    \includegraphics[width=0.7\linewidth]{figures/gcs-bucket.png}
-  \caption{Bucket de GCS con capas Bronze y Gold.}
-  \label{fig:gcs-bucket}
+  \includegraphics[width=0.8\linewidth]{../img/cloud-run-images/cloudrun_job_execution_history_config.png}
+  \caption{Configuración y historial de ejecución del Cloud Run Job para extracción Bronze.}
+  \label{fig:cloudrun-config}
 \end{figure}
+
+\subsubsection{Métricas de tiempo de ejecución}
+
+La fase de extracción Bronze completó exitosamente con las siguientes métricas:
+
+\begin{table}[H]
+  \centering
+  \caption{Tiempos de ejecución de la fase Bronze (Cloud Run).}
+  \label{tab:bronze-timing}
+  \scriptsize
+  \begin{tabular}{@{}lr@{}}
+    \toprule
+    Etapa & Tiempo \\
+    \midrule
+    Creación de tabla temporal & 5.51s \\
+    Exportación a Parquet (GCS) & 2.81s \\
+    Limpieza de recursos & 0.16s \\
+    \midrule
+    \textbf{Tiempo total} & \textbf{8.51s (0.14 min)} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/cloud-run-images/cloudrun_observability_metrics.png}
+  \caption{Métricas de observabilidad del Cloud Run Job mostrando ejecución exitosa.}
+  \label{fig:cloudrun-metrics}
+\end{figure}
+
+\subsubsection{Verificación de estructura y consistencia}
+
+Una vez completada la exportación, se verificó la estructura del bucket de GCS y la integridad de los datos:
+
+\paragraph{Estructura del bucket.}
+El bucket \texttt{iowa-liquor-medallion-ml} queda entonces con la siguiente carpeta:
+
+\begin{itemize}
+  \item \texttt{bronze/iowa\_sales/}: Datos crudos en formato Parquet (32,816,143 registros)
+\end{itemize}
+
+\paragraph{Archivos Parquet en capa Bronze.}
+BigQuery generó múltiples archivos Parquet para optimizar la exportación paralela. Cada archivo contiene un subconjunto de los registros totales:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/cloud-storage-images/gcs_bronze_layer_parquet_files.png}
+  \caption{Archivos Parquet en la capa Bronze listos para procesamiento distribuido.}
+  \label{fig:gcs-bronze}
+\end{figure}
+
+\paragraph{Validaciones realizadas.}
+\begin{itemize}
+  \item \textbf{Conteo de registros:} 32,816,143 registros exportados (coincide con el dataset original)
+  \item \textbf{Formato:} Parquet columnar con compresión Snappy
+  \item \textbf{Esquema:} Todas las columnas originales + columnas derivadas \texttt{year} y \texttt{month}
+  \item \textbf{Integridad:} Sin errores de exportación, todos los archivos accesibles
+  \item \textbf{Trazabilidad:} Métricas de tiempo registradas en \texttt{job\_timing\_bronze.json}
+\end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Procesamiento distribuido en Dataproc}
