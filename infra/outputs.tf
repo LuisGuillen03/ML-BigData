@@ -18,7 +18,8 @@ output "cloud_run_job_name" {
   value       = module.cloud_run.job_name
 }
 
-output "dataproc_cluster1_name" {
-  description = "Dataproc Cluster 1 name"
-  value       = module.dataproc_cluster1.cluster_name
+output "dataproc_cluster_name" {
+  description = "Dataproc cluster name"
+  value       = module.dataproc.cluster_name
 }
+
