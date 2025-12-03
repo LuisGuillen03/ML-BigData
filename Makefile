@@ -42,7 +42,11 @@ build-bronze-container:
 
 .PHONY: run-bronze-extraction
 run-bronze-extraction:
+	@echo "Running bronze extraction with timing..."
 	gcloud run jobs execute bronze-extract-job --region=$(REGION) --project=$(PROJECT_ID)
+	@echo "Waiting for timing file..."
+	@sleep 10
+	@gsutil cat gs://$(BUCKET)/job_timing_bronze.json 2>/dev/null || echo "Timing file not yet available"
 
 .PHONY: upload-gold-script
 upload-gold-script:
