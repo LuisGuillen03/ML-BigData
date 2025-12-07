@@ -7,18 +7,21 @@ This directory follows MLOps and software engineering best practices for organiz
 ```
 docs/
 ├── data-analysis/              # EDA and data profiling
-│   ├── EDA_SUMMARY.md          # Statistical analysis
-│
-├── model-development/          # ML model specifications
-│   ├── ML_MODEL_INSTRUCTIONS.md
+│   └── EDA_SUMMARY.md          # Statistical analysis
 │
 ├── project-management/         # Requirements and rubrics
 │   ├── PROJECT_REQUIREMENTS.md
-│   └── EvaluacionProyectoFinal.pdf  # Original project specifications
+│   └── EvaluacionProyectoFinal.pdf
 │
-├── img/                        # Screenshots and diagrams
+├── src/                        # LaTeX source for final report
+│   └── main.tex
+│
+├── figures/                    # Architecture diagrams
+│   └── architecture/
+│
+└── img/                        # Screenshots and evidence
     ├── cloud-storage-images/
-    ├── cloudrun-images/
+    ├── cloud-run-images/
     ├── high-mem-images/
     └── standard-cluster-images/
 ```
@@ -27,21 +30,21 @@ docs/
 
 ### Data Analysis (`data-analysis/`)
 
-Contains all exploratory data analysis, data quality reports, and statistical summaries.
+Contains exploratory data analysis, data quality reports, and statistical summaries.
 
 **Purpose:** Understand the dataset before modeling
-
-### Model Development (`model-development/`)
-
-Contains model specifications, training procedures, hyperparameters, and evaluation metrics.
-
-**Purpose:** Reproducible model training and evaluation
 
 ### Project Management (`project-management/`)
 
 Contains project requirements, rubrics, evaluation criteria, and deliverables checklist.
 
 **Purpose:** Track project compliance and completion
+
+### LaTeX Source (`src/`)
+
+Contains the LaTeX source code for the final project report.
+
+**Purpose:** Generate professional PDF documentation
 
 ### Images (`img/`)
 
