@@ -25,22 +25,21 @@ timings = {}
 # Initialize Spark with memory optimizations
 stage_start = time.time()
 spark = (
-    SparkSession.builder
-    .appName(f"MLRegression-{CLUSTER_NAME}")
+    SparkSession.builder.appName(f"MLRegression-{CLUSTER_NAME}")
     .config("spark.sql.shuffle.partitions", "40")
     .config("spark.sql.autoBroadcastJoinThreshold", "-1")
     .getOrCreate()
 )
 timings["spark_initialization"] = f"{time.time() - stage_start:.2f}s"
 
-# Read Gold layer - 100% of data
+# Read Gold layer
 stage_start = time.time()
 df = spark.read.parquet(GOLD_PATH)
-df = df.coalesce(80)  # More partitions for full dataset
+df = df.coalesce(80)
 timings["read_gold_data"] = f"{time.time() - stage_start:.2f}s"
 print(f"Data loaded - 100% of dataset, coalesced to 80 partitions")
 
-# Prepare features - SIMPLE VERSION (only numeric, no categoricals)
+# Prepare features - (only numeric, no categoricals)
 stage_start = time.time()
 feature_cols = [
     "bottles_sold",
@@ -49,14 +48,16 @@ feature_cols = [
     "quarter",
     "is_weekend",
     "price_per_bottle",
-    "volume_per_bottle"
+    "volume_per_bottle",
 ]
 
 # Assemble features
-assembler = VectorAssembler(inputCols=feature_cols, outputCol="features", handleInvalid="skip")
+assembler = VectorAssembler(
+    inputCols=feature_cols, outputCol="features", handleInvalid="skip"
+)
 df_features = assembler.transform(df).select("features", "sale_dollars")
 
-# Split data (80/20) - NO COUNT HERE
+# Split data (80/20)
 train_df, test_df = df_features.randomSplit([0.8, 0.2], seed=42)
 timings["feature_preparation"] = f"{time.time() - stage_start:.2f}s"
 print(f"Train/test split completed (80/20)")
@@ -74,9 +75,15 @@ stage_start = time.time()
 print("Generating predictions...")
 predictions = model.transform(test_df)
 
-evaluator_r2 = RegressionEvaluator(labelCol="sale_dollars", predictionCol="prediction", metricName="r2")
-evaluator_rmse = RegressionEvaluator(labelCol="sale_dollars", predictionCol="prediction", metricName="rmse")
-evaluator_mae = RegressionEvaluator(labelCol="sale_dollars", predictionCol="prediction", metricName="mae")
+evaluator_r2 = RegressionEvaluator(
+    labelCol="sale_dollars", predictionCol="prediction", metricName="r2"
+)
+evaluator_rmse = RegressionEvaluator(
+    labelCol="sale_dollars", predictionCol="prediction", metricName="rmse"
+)
+evaluator_mae = RegressionEvaluator(
+    labelCol="sale_dollars", predictionCol="prediction", metricName="mae"
+)
 
 r2 = evaluator_r2.evaluate(predictions)
 rmse = evaluator_rmse.evaluate(predictions)
@@ -85,7 +92,7 @@ mae = evaluator_mae.evaluate(predictions)
 timings["model_evaluation"] = f"{time.time() - stage_start:.2f}s"
 print(f"Model Metrics - R²: {r2:.4f}, RMSE: {rmse:.2f}, MAE: {mae:.2f}")
 
-# Get counts AFTER training (not blocking)
+# Get counts after training
 train_count = train_df.count()
 test_count = test_df.count()
 print(f"Train records: {train_count}, Test records: {test_count}")
@@ -104,15 +111,15 @@ timing_data = {
             "test_records": test_count,
             "features_used": feature_cols,
             "year_filter": "none",
-            "data_percentage": "100%"
+            "data_percentage": "100%",
         },
         "model_metrics": {
             "r2_score": float(r2),
             "rmse": float(rmse),
             "mae": float(mae),
             "model_type": "Linear Regression",
-            "max_iterations": 10
-        }
+            "max_iterations": 10,
+        },
     }
 }
 
@@ -123,11 +130,15 @@ spark.sparkContext.parallelize([timing_json]).coalesce(1).saveAsTextFile(
 )
 
 from subprocess import call
-call([
-    "gsutil", "cp",
-    f"gs://{BUCKET}/job_timing_ml_{CLUSTER_NAME}_temp/part-00000",
-    f"gs://{BUCKET}/job_timing_ml_{CLUSTER_NAME}.json"
-])
+
+call(
+    [
+        "gsutil",
+        "cp",
+        f"gs://{BUCKET}/job_timing_ml_{CLUSTER_NAME}_temp/part-00000",
+        f"gs://{BUCKET}/job_timing_ml_{CLUSTER_NAME}.json",
+    ]
+)
 call(["gsutil", "rm", "-r", f"gs://{BUCKET}/job_timing_ml_{CLUSTER_NAME}_temp"])
 
 print(f"✓ Model metrics saved to gs://{BUCKET}/job_timing_ml_{CLUSTER_NAME}.json")
