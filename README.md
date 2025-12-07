@@ -12,7 +12,7 @@ Proyecto de analítica predictiva en entornos de datos masivos utilizando arquit
 2. **EDA** → Análisis exploratorio con scripts Python
 3. **Cloud Run** → Extracción ETL hacia capa Bronze (GCS)
 4. **Dataproc** → Transformación distribuida PySpark hacia capa Gold (GCS)
-5. **ML Model** → Modelo de regresión PySpark (Planeado)
+5. **ML Model** → Modelo de regresión PySpark
 
 ## Estructura del Proyecto
 
