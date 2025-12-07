@@ -35,7 +35,12 @@ help:
 	@echo "  make cluster2-start          - Start cluster2"
 	@echo "  make cluster2-stop           - Stop cluster2"
 	@echo "  make cluster2-delete         - Delete cluster2"
-	@echo "  make cluster2-ssh            - SSH into cluster2"
+	@echo "  make cluster2-ssh            - SSH into cluster2
+	@echo ""
+	@echo "ML Model:"
+	@echo "  make upload-ml-script        - Upload ML script to GCS"
+	@echo "  make run-ml-c1               - Run ML training on cluster1"
+	@echo "  make run-ml-c2               - Run ML training on cluster2""
 
 .PHONY: infra-init
 infra-init:
@@ -126,5 +131,28 @@ cluster2-delete:
 	gcloud dataproc clusters delete $(CLUSTER2) --region=$(REGION) --project=$(PROJECT_ID) --quiet
 
 .PHONY: cluster2-ssh
-cluster2-ssh:
 	gcloud compute ssh $(CLUSTER2)-m --zone=$(REGION)-a --project=$(PROJECT_ID)
+
+.PHONY: upload-ml-script
+upload-ml-script:
+	gsutil cp dataproc/ml_regression.py gs://$(BUCKET)/scripts/
+
+.PHONY: run-ml-c1
+run-ml-c1:
+	gcloud dataproc jobs submit pyspark \
+	  gs://$(BUCKET)/scripts/ml_regression.py \
+	  --cluster=$(CLUSTER1) \
+	  --region=$(REGION) \
+	  --project=$(PROJECT_ID) \
+	  --id=ml-c1-$$(date +%Y%m%d-%H%M%S) \
+	  -- $(CLUSTER1)
+
+.PHONY: run-ml-c2
+run-ml-c2:
+	gcloud dataproc jobs submit pyspark \
+	  gs://$(BUCKET)/scripts/ml_regression.py \
+	  --cluster=$(CLUSTER2) \
+	  --region=$(REGION) \
+	  --project=$(PROJECT_ID) \
+	  --id=ml-c2-$$(date +%Y%m%d-%H%M%S) \
+	  -- $(CLUSTER2)
