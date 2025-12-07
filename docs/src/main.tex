@@ -706,10 +706,24 @@ La fase de transformación Gold se ejecutó en ambos clusters con resultados sig
  
  La configuración del cluster impactó directamente en la eficiencia del entrenamiento:
  
- \begin{itemize}
-   \item \textbf{Eficiencia de Memoria:} El Cluster 1 operó cerca de sus límites de memoria, lo que probablemente causó overhead por Garbage Collection (GC) excesivo durante el entrenamiento. El Cluster 2, con holgura de memoria, evitó estas pausas.
-   \item \textbf{Throughput:} El Cluster 2 procesó el entrenamiento a una tasa efectiva de ~38,000 registros/segundo, comparado con ~20,000 registros/segundo del Cluster 1.
- \end{itemize}
+\begin{itemize}
+  \item \textbf{Eficiencia de Memoria:} El Cluster 1 operó cerca de sus límites de memoria, lo que probablemente causó overhead por Garbage Collection (GC) excesivo durante el entrenamiento. El Cluster 2, con holgura de memoria, evitó estas pausas.
+  \item \textbf{Throughput:} El Cluster 2 procesó el entrenamiento a una tasa efectiva de ~38,000 registros/segundo, comparado con ~20,000 registros/segundo del Cluster 1.
+\end{itemize}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/standard-cluster-images/ml-c1-simple-100pt.png}
+  \caption{Monitoreo de de recursos durante el entrenamiento del modelo en el Cluster 1.}
+  \label{fig:ml-cluster1-monitoring}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../img/high-mem-images/ml-c2-lr-100pt.png}
+  \caption{Monitoreo de de recursos durante el entrenamiento del modelo en el Cluster 2.}
+  \label{fig:ml-cluster2-monitoring}
+\end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 4. RESULTADOS Y ANÁLISIS
