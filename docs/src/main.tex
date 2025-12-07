@@ -186,7 +186,7 @@ La arquitectura implementada sigue un patrón de medallion con dos capas (Bronze
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{../figures/architecture/iowa-liquor-sales-ml-pipeline-architecture.png}
-    \caption{Arquitectura del pipeline distribuido: BigQuery → Cloud Run → GCS Bronze → Dataproc → GCS Gold → ML Model (***PLANNED***).}
+    \caption{Arquitectura del pipeline distribuido: BigQuery → Cloud Run → GCS Bronze → Dataproc → GCS Gold → ML Model.}
     \label{fig:architecture}
 \end{figure}
 
@@ -205,7 +205,7 @@ El pipeline implementa un flujo de datos end-to-end con las siguientes etapas:
   
   \item \textbf{Capa Gold (GCS):} Datos limpios, transformados y enriquecidos con features derivadas, almacenados en formato Parquet particionado y optimizados para consumo analítico y modelado ML.
   
-  \item \textbf{Modelado ML (***PLANNED***):} Modelo de regresión lineal con PySpark MLlib entrenado sobre la capa Gold para predicción de ventas, con evaluación de métricas (R², RMSE, MAE) y comparación de performance entre configuraciones de cluster.
+  \item \textbf{Modelado ML:} Modelo de regresión lineal con PySpark MLlib entrenado sobre la capa Gold para predicción de ventas, con evaluación de métricas (R², RMSE, MAE) y comparación de performance entre configuraciones de cluster.
 \end{enumerate}
 
 \subsection{Componentes de la arquitectura}
@@ -217,7 +217,7 @@ El pipeline implementa un flujo de datos end-to-end con las siguientes etapas:
   \item \textbf{Dataproc (PySpark):} Cluster de procesamiento distribuido para transformación y feature engineering
   \item \textbf{GCS Gold Layer:} Datos refinados listos para análisis y modelado
   \item \textbf{Terraform:} Infraestructura como código para provisionar clusters Dataproc con diferentes configuraciones
-  \item \textbf{ML Model (***PLANNED***):} Modelo de regresión PySpark MLlib para predicción de ventas
+  \item \textbf{ML Model:} Modelo de regresión PySpark MLlib para predicción de ventas
 \end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
